@@ -20,7 +20,7 @@ interface N8nResponse {
   ticketId?: string;
 }
 
-const WEBHOOK_URL = "YOUR_N8N_WEBHOOK_URL"; // Replace with your n8n webhook URL
+const WEBHOOK_URL = "https://ntihishkkumarg.app.n8n.cloud/webhook/airline-chatbot"; // Replace with your n8n webhook URL
 
 const ChatWidget = () => {
   const [isOpen, setIsOpen] = useState(false);
