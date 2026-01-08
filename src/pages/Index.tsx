@@ -11,7 +11,7 @@ const Index = () => {
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary">
               <Plane className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-semibold text-foreground">SkyLine Airways</span>
+            <span className="text-xl font-semibold text-foreground">Tata Airways</span>
           </div>
           <nav className="hidden md:flex items-center gap-6 text-sm text-muted-foreground">
             <a href="#" className="hover:text-foreground transition-colors">Book</a>
@@ -33,7 +33,7 @@ const Index = () => {
                 Fly Beyond Expectations
               </h1>
               <p className="mt-4 text-lg text-primary-foreground/80 max-w-lg">
-                Experience world-class service and seamless travel with SkyLine Airways. 
+                Experience world-class service and seamless travel with Tata Airways. 
                 Our support team is here 24/7 to assist you.
               </p>
               <div className="mt-8 flex flex-wrap gap-4">
@@ -102,21 +102,21 @@ const Index = () => {
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <Plane className="h-5 w-5 text-primary" />
-              <span className="font-medium text-foreground">SkyLine Airways</span>
+              <span className="font-medium text-foreground">Tata Airways</span>
             </div>
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
               <div className="flex items-center gap-1">
                 <Phone className="h-4 w-4" />
-                <span>1-800-SKYLINE</span>
+                <span>1-800-Tata</span>
               </div>
               <div className="flex items-center gap-1">
                 <Mail className="h-4 w-4" />
-                <span>support@skyline.com</span>
+                <span>support@tata.com</span>
               </div>
             </div>
           </div>
           <div className="mt-6 text-center text-xs text-muted-foreground">
-            © 2026 SkyLine Airways. All rights reserved.
+            © 2026 Tata Airways. All rights reserved.
           </div>
         </div>
       </footer>

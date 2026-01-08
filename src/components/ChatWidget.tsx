@@ -27,7 +27,7 @@ const ChatWidget = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
-      content: "Hello! Welcome to SkyLine Airways support. How can I assist you today?",
+      content: "Hello! Welcome to Tata Airways support. How can I assist you today?",
       role: "assistant",
       timestamp: new Date(),
     },
@@ -72,8 +72,8 @@ const ChatWidget = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          message: userMessage.content,
-          sessionId: "session_" + Date.now(),
+          usermessage: userMessage.content,
+          sessionId: "session_1",
         }),
       });
 
@@ -140,7 +140,7 @@ const ChatWidget = () => {
             <Plane className="h-5 w-5 text-primary-foreground" />
           </div>
           <div className="flex-1">
-            <h3 className="font-semibold text-primary-foreground">SkyLine Airways</h3>
+            <h3 className="font-semibold text-primary-foreground">Tata Airways</h3>
             <p className="text-xs text-primary-foreground/80">Customer Support</p>
           </div>
           <div className="flex items-center gap-1.5">
@@ -190,7 +190,7 @@ const ChatWidget = () => {
             </Button>
           </div>
           <p className="mt-2 text-center text-xs text-muted-foreground">
-            Powered by SkyLine Airways
+            Powered by Tata Airways
           </p>
         </div>
       </div>
