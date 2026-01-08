@@ -57,11 +57,17 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        "chat-bg": "hsl(var(--chat-bg))",
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      boxShadow: {
+        chat: "0 4px 20px -4px hsl(215 80% 25% / 0.3)",
+        "chat-window": "0 10px 40px -10px hsl(215 50% 15% / 0.25), 0 0 0 1px hsl(210 25% 88% / 0.5)",
+        message: "0 1px 3px hsl(215 50% 15% / 0.08)",
       },
       keyframes: {
         "accordion-down": {
