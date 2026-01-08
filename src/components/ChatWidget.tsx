@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { v4 as uuidv4 } from "uuid"; // Import UUID library
 import { MessageCircle, X, Send, Plane } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +38,20 @@ const ChatWidget = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Retrieve or generate a unique session ID
+  const getSessionId = () => {
+    let sessionId = localStorage.getItem("chat_session_id");
+    if (!sessionId) {
+      sessionId = uuidv4();
+      localStorage.setItem("chat_session_id", sessionId);
+    }
+    return sessionId;
+  };
+
+  const clearSessionId = () => {
+    localStorage.removeItem("chat_session_id");
+  };
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -73,7 +88,7 @@ const ChatWidget = () => {
         },
         body: JSON.stringify({
           usermessage: userMessage.content,
-          sessionId: "session_1",
+          sessionId: getSessionId(),
         }),
       });
 
@@ -88,6 +103,10 @@ const ChatWidget = () => {
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+
+      if (data.isComplete) {
+        clearSessionId();
+      }
     } catch (error) {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
