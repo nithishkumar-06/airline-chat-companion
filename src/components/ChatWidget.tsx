@@ -36,7 +36,7 @@ interface ApiResponse {
 const WEBHOOK_URL = "https://ntihishkkumarg.app.n8n.cloud/webhook/airline-chatbot";
 
 const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, getToken } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -98,7 +98,7 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${user?.token}`,
+          "Authorization": `Bearer ${getToken()}`,
         },
         body: JSON.stringify({
           usermessage: userMessage.content,
