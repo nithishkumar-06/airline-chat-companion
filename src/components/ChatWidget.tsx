@@ -98,7 +98,7 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${user?.token}`,
+          "Authorization": `Bearer ${getToken()}`,
         },
         body: JSON.stringify({
           usermessage: userMessage.content,
