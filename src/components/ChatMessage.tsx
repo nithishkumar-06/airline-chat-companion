@@ -1,12 +1,20 @@
 import { cn } from "@/lib/utils";
-import { Plane, User } from "lucide-react";
+import { Plane, User, Tag, ArrowUpRight } from "lucide-react";
+
+interface TicketInfo {
+  ticketRef: string;
+  category: string;
+  priority: string;
+  status: string;
+  emailSent: boolean;
+}
 
 interface Message {
   id: string;
   content: string;
   role: "user" | "assistant";
   timestamp: Date;
-  ticketId?: string;
+  ticket?: TicketInfo;
 }
 
 interface ChatMessageProps {
@@ -27,7 +35,6 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
         isUser ? "flex-row-reverse" : "flex-row"
       )}
     >
-      {/* Avatar */}
       <div
         className={cn(
           "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
@@ -37,7 +44,6 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
         {isUser ? <User className="h-4 w-4" /> : <Plane className="h-4 w-4" />}
       </div>
 
-      {/* Message Bubble */}
       <div
         className={cn(
           "max-w-[75%] rounded-2xl px-4 py-2.5 shadow-message",
@@ -47,11 +53,42 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
         )}
       >
         <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
-        {message.ticketId && (
-          <div className="mt-2 rounded-lg bg-primary-foreground/10 px-2 py-1">
-            <p className="text-xs font-medium">🎫 {message.ticketId}</p>
+
+        {message.ticket && (
+          <div className="mt-3 rounded-lg bg-secondary/50 border border-border p-3 space-y-1.5">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Tag className="h-3.5 w-3.5 text-primary" />
+              <span className="text-xs font-semibold text-primary">Ticket Created</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Ref</span>
+              <span className="font-mono font-semibold text-foreground">{message.ticket.ticketRef}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Category</span>
+              <span className="capitalize text-foreground">{message.ticket.category}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Priority</span>
+              <span className={cn(
+                "capitalize font-medium px-1.5 py-0.5 rounded text-[10px]",
+                message.ticket.priority === "high" ? "bg-destructive/10 text-destructive" :
+                message.ticket.priority === "medium" ? "bg-accent/10 text-accent" :
+                "bg-muted text-muted-foreground"
+              )}>
+                {message.ticket.priority}
+              </span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Status</span>
+              <span className="flex items-center gap-1 capitalize text-foreground">
+                <ArrowUpRight className="h-3 w-3" />
+                {message.ticket.status}
+              </span>
+            </div>
           </div>
         )}
+
         <p
           className={cn(
             "mt-1 text-xs",

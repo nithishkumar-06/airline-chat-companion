@@ -1,29 +1,42 @@
 import { useState, useRef, useEffect } from "react";
-import { v4 as uuidv4 } from "uuid"; // Import UUID library
-import { MessageCircle, X, Send, Plane } from "lucide-react";
+import { v4 as uuidv4 } from "uuid";
+import { MessageCircle, X, Send, Plane, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 import ChatMessage from "./ChatMessage";
+import TicketCelebration from "./TicketCelebration";
 
 interface Message {
   id: string;
   content: string;
   role: "user" | "assistant";
   timestamp: Date;
-  ticketId?: string;
+  ticket?: TicketInfo;
 }
 
-interface N8nResponse {
-  success: boolean;
-  message: string;
-  isComplete: boolean;
-  ticketId?: string;
+interface TicketInfo {
+  ticketRef: string;
+  category: string;
+  priority: string;
+  status: string;
+  emailSent: boolean;
 }
 
-const WEBHOOK_URL = "https://ntihishkkumarg.app.n8n.cloud/webhook/airline-chatbot"; // Replace with your n8n webhook URL
+interface ApiResponse {
+  sessionId: string;
+  reply: string;
+  actions: string[];
+  conversationStatus: string;
+  timestamp: string;
+  ticket?: TicketInfo;
+}
 
-const ChatWidget = () => {
+const WEBHOOK_URL = "https://ntihishkkumarg.app.n8n.cloud/webhook/airline-chatbot";
+
+const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
+  const { isAuthenticated, user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -35,10 +48,10 @@ const ChatWidget = () => {
   ]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [celebrationTicket, setCelebrationTicket] = useState<TicketInfo | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Retrieve or generate a unique session ID
   const getSessionId = () => {
     let sessionId = localStorage.getItem("chat_session_id");
     if (!sessionId) {
@@ -61,13 +74,13 @@ const ChatWidget = () => {
   }, [messages]);
 
   useEffect(() => {
-    if (isOpen && inputRef.current) {
+    if (isOpen && inputRef.current && isAuthenticated) {
       inputRef.current.focus();
     }
-  }, [isOpen]);
+  }, [isOpen, isAuthenticated]);
 
   const sendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return;
+    if (!inputValue.trim() || isLoading || !isAuthenticated) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -85,6 +98,7 @@ const ChatWidget = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${user?.token}`,
         },
         body: JSON.stringify({
           usermessage: userMessage.content,
@@ -92,22 +106,26 @@ const ChatWidget = () => {
         }),
       });
 
-      const data: N8nResponse = await response.json();
+      const data: ApiResponse = await response.json();
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: data.message,
+        content: data.reply,
         role: "assistant",
-        timestamp: new Date(),
-        ticketId: data.ticketId,
+        timestamp: new Date(data.timestamp),
+        ticket: data.ticket,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
 
-      if (data.isComplete) {
+      if (data.ticket) {
+        setCelebrationTicket(data.ticket);
+      }
+
+      if (data.conversationStatus === "escalated" || data.conversationStatus === "completed") {
         clearSessionId();
       }
-    } catch (error) {
+    } catch {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         content: "I apologize, but I'm having trouble connecting right now. Please try again in a moment.",
@@ -129,7 +147,6 @@ const ChatWidget = () => {
 
   return (
     <>
-      {/* Chat Toggle Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
@@ -143,7 +160,6 @@ const ChatWidget = () => {
         {isOpen ? <X className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />}
       </button>
 
-      {/* Chat Window */}
       <div
         className={cn(
           "fixed bottom-24 right-6 z-50 flex w-[380px] max-w-[calc(100vw-3rem)] flex-col overflow-hidden rounded-2xl bg-card shadow-chat-window transition-all duration-300",
@@ -168,49 +184,79 @@ const ChatWidget = () => {
           </div>
         </div>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto bg-chat-bg p-4">
-          <div className="flex flex-col gap-3">
-            {messages.map((message) => (
-              <ChatMessage key={message.id} message={message} />
-            ))}
-            {isLoading && (
-              <div className="flex items-center gap-2 self-start rounded-2xl rounded-bl-sm bg-card px-4 py-3 shadow-message">
-                <div className="flex gap-1">
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/50" style={{ animationDelay: "0ms" }} />
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/50" style={{ animationDelay: "150ms" }} />
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/50" style={{ animationDelay: "300ms" }} />
+        {/* Content */}
+        <div className="relative flex-1 flex flex-col">
+          {/* Celebration overlay */}
+          {celebrationTicket && (
+            <TicketCelebration
+              ticket={celebrationTicket}
+              onClose={() => setCelebrationTicket(null)}
+            />
+          )}
+
+          {isAuthenticated ? (
+            <>
+              {/* Messages */}
+              <div className="flex-1 overflow-y-auto bg-chat-bg p-4">
+                <div className="flex flex-col gap-3">
+                  {messages.map((message) => (
+                    <ChatMessage key={message.id} message={message} />
+                  ))}
+                  {isLoading && (
+                    <div className="flex items-center gap-2 self-start rounded-2xl rounded-bl-sm bg-card px-4 py-3 shadow-message">
+                      <div className="flex gap-1">
+                        <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/50" style={{ animationDelay: "0ms" }} />
+                        <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/50" style={{ animationDelay: "150ms" }} />
+                        <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/50" style={{ animationDelay: "300ms" }} />
+                      </div>
+                    </div>
+                  )}
+                  <div ref={messagesEndRef} />
                 </div>
               </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-        </div>
 
-        {/* Input */}
-        <div className="border-t bg-card p-4">
-          <div className="flex gap-2">
-            <Input
-              ref={inputRef}
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={handleKeyPress}
-              placeholder="Type your message..."
-              className="flex-1 border-muted bg-muted/50 focus-visible:ring-primary"
-              disabled={isLoading}
-            />
-            <Button
-              onClick={sendMessage}
-              disabled={!inputValue.trim() || isLoading}
-              size="icon"
-              className="shrink-0"
-            >
-              <Send className="h-4 w-4" />
-            </Button>
-          </div>
-          <p className="mt-2 text-center text-xs text-muted-foreground">
-            Powered by Tata Airways
-          </p>
+              {/* Input */}
+              <div className="border-t bg-card p-4">
+                <div className="flex gap-2">
+                  <Input
+                    ref={inputRef}
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyDown={handleKeyPress}
+                    placeholder="Type your message..."
+                    className="flex-1 border-muted bg-muted/50 focus-visible:ring-primary"
+                    disabled={isLoading}
+                  />
+                  <Button
+                    onClick={sendMessage}
+                    disabled={!inputValue.trim() || isLoading}
+                    size="icon"
+                    className="shrink-0"
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="mt-2 text-center text-xs text-muted-foreground">
+                  Powered by Tata Airways
+                </p>
+              </div>
+            </>
+          ) : (
+            /* Login prompt */
+            <div className="flex-1 flex flex-col items-center justify-center bg-chat-bg p-8 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-secondary mb-4">
+                <LogIn className="h-7 w-7 text-primary" />
+              </div>
+              <h4 className="text-lg font-semibold text-foreground mb-2">Sign in Required</h4>
+              <p className="text-sm text-muted-foreground mb-6 max-w-[260px]">
+                Please sign in to your Tata Airways account to access customer support.
+              </p>
+              <Button onClick={onLoginRequest} className="gap-2">
+                <LogIn className="h-4 w-4" />
+                Sign In to Chat
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </>
