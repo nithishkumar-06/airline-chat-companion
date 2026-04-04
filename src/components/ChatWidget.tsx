@@ -209,7 +209,7 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
           {isAuthenticated ? (
             <>
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto bg-chat-bg p-4">
+              <div className="flex-1 overflow-y-auto bg-chat-bg p-4" style={{ overflowY: "auto" }}>
                 <div className="flex flex-col gap-3">
                   {messages.map((message) => (
                     <ChatMessage key={message.id} message={message} />
