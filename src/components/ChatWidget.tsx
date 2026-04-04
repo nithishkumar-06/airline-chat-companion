@@ -69,6 +69,21 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  const defaultMessages: Message[] = [
+    {
+      id: "welcome",
+      content: "Hello! Welcome to Tata Airways support. How can I assist you today?",
+      role: "assistant",
+      timestamp: new Date(),
+    },
+  ];
+
+  // Clear messages when auth state changes (logout/login)
+  useEffect(() => {
+    setMessages(defaultMessages);
+    clearSessionId();
+  }, [isAuthenticated]);
+
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
