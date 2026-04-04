@@ -106,11 +106,23 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
         }),
       });
 
-      const data: ApiResponse = await response.json();
+      const raw = await response.json();
+      // Handle both direct response and wrapped response formats
+      const data: ApiResponse = raw.reply && typeof raw.reply === "object" ? raw.reply : raw;
+      // If reply is still a JSON string, try to parse it
+      let replyText = data.reply;
+      if (typeof replyText === "string" && replyText.trim().startsWith("{")) {
+        try {
+          const parsed = JSON.parse(replyText);
+          replyText = parsed.reply || replyText;
+        } catch {
+          // keep as-is
+        }
+      }
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: data.reply,
+        content: replyText,
         role: "assistant",
         timestamp: new Date(data.timestamp),
         ticket: data.ticket,
