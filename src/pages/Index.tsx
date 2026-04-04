@@ -1,7 +1,14 @@
-import { Plane, Phone, Mail, MapPin } from "lucide-react";
+import { useState } from "react";
+import { Plane, Phone, Mail, LogIn, LogOut, User } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 import ChatWidget from "@/components/ChatWidget";
+import LoginDialog from "@/components/LoginDialog";
 
 const Index = () => {
+  const { isAuthenticated, user, logout } = useAuth();
+  const [loginOpen, setLoginOpen] = useState(false);
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {/* Header */}
@@ -13,18 +20,36 @@ const Index = () => {
             </div>
             <span className="text-xl font-semibold text-foreground">Tata Airways</span>
           </div>
-          <nav className="hidden md:flex items-center gap-6 text-sm text-muted-foreground">
-            <a href="#" className="hover:text-foreground transition-colors">Book</a>
-            <a href="#" className="hover:text-foreground transition-colors">Manage</a>
-            <a href="#" className="hover:text-foreground transition-colors">Experience</a>
-            <a href="#" className="hover:text-foreground transition-colors">Help</a>
-          </nav>
+          <div className="flex items-center gap-4">
+            <nav className="hidden md:flex items-center gap-6 text-sm text-muted-foreground">
+              <a href="#" className="hover:text-foreground transition-colors">Book</a>
+              <a href="#" className="hover:text-foreground transition-colors">Manage</a>
+              <a href="#" className="hover:text-foreground transition-colors">Experience</a>
+              <a href="#" className="hover:text-foreground transition-colors">Help</a>
+            </nav>
+            {isAuthenticated ? (
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <User className="h-4 w-4" />
+                  <span className="hidden sm:inline">{user?.username}</span>
+                </div>
+                <Button variant="outline" size="sm" onClick={logout}>
+                  <LogOut className="h-4 w-4 mr-1" />
+                  Sign Out
+                </Button>
+              </div>
+            ) : (
+              <Button size="sm" onClick={() => setLoginOpen(true)}>
+                <LogIn className="h-4 w-4 mr-1" />
+                Sign In
+              </Button>
+            )}
+          </div>
         </div>
       </header>
 
       {/* Main Content */}
       <main className="flex-1">
-        {/* Hero Section */}
         <section className="relative overflow-hidden bg-gradient-to-br from-primary via-primary to-accent/30 py-24 md:py-32">
           <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-50" />
           <div className="container relative z-10">
@@ -33,7 +58,7 @@ const Index = () => {
                 Fly Beyond Expectations
               </h1>
               <p className="mt-4 text-lg text-primary-foreground/80 max-w-lg">
-                Experience world-class service and seamless travel with Tata Airways. 
+                Experience world-class service and seamless travel with Tata Airways.
                 Our support team is here 24/7 to assist you.
               </p>
               <div className="mt-8 flex flex-wrap gap-4">
@@ -48,7 +73,6 @@ const Index = () => {
           </div>
         </section>
 
-        {/* Features */}
         <section className="py-16 bg-card">
           <div className="container">
             <div className="grid gap-8 md:grid-cols-3">
@@ -57,38 +81,29 @@ const Index = () => {
                   <Plane className="h-6 w-6 text-primary" />
                 </div>
                 <h3 className="font-semibold text-foreground">150+ Destinations</h3>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Connect to major cities around the world
-                </p>
+                <p className="mt-2 text-sm text-muted-foreground">Connect to major cities around the world</p>
               </div>
               <div className="text-center p-6">
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-secondary">
                   <Phone className="h-6 w-6 text-primary" />
                 </div>
                 <h3 className="font-semibold text-foreground">24/7 Support</h3>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Our team is always here to help you
-                </p>
+                <p className="mt-2 text-sm text-muted-foreground">Our team is always here to help you</p>
               </div>
               <div className="text-center p-6">
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-secondary">
                   <Mail className="h-6 w-6 text-primary" />
                 </div>
                 <h3 className="font-semibold text-foreground">Easy Booking</h3>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Seamless booking experience online
-                </p>
+                <p className="mt-2 text-sm text-muted-foreground">Seamless booking experience online</p>
               </div>
             </div>
           </div>
         </section>
 
-        {/* CTA */}
         <section className="py-16 bg-background">
           <div className="container text-center">
-            <h2 className="text-2xl md:text-3xl font-bold text-foreground">
-              Need Assistance?
-            </h2>
+            <h2 className="text-2xl md:text-3xl font-bold text-foreground">Need Assistance?</h2>
             <p className="mt-2 text-muted-foreground max-w-md mx-auto">
               Click the chat icon in the bottom right corner to connect with our support team instantly.
             </p>
@@ -121,8 +136,8 @@ const Index = () => {
         </div>
       </footer>
 
-      {/* Chat Widget */}
-      <ChatWidget />
+      <ChatWidget onLoginRequest={() => setLoginOpen(true)} />
+      <LoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
     </div>
   );
 };
