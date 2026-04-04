@@ -69,6 +69,21 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  const defaultMessages: Message[] = [
+    {
+      id: "welcome",
+      content: "Hello! Welcome to Tata Airways support. How can I assist you today?",
+      role: "assistant",
+      timestamp: new Date(),
+    },
+  ];
+
+  // Clear messages when auth state changes (logout/login)
+  useEffect(() => {
+    setMessages(defaultMessages);
+    clearSessionId();
+  }, [isAuthenticated]);
+
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
@@ -106,11 +121,23 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
         }),
       });
 
-      const data: ApiResponse = await response.json();
+      const raw = await response.json();
+      // Handle both direct response and wrapped response formats
+      const data: ApiResponse = raw.reply && typeof raw.reply === "object" ? raw.reply : raw;
+      // If reply is still a JSON string, try to parse it
+      let replyText = data.reply;
+      if (typeof replyText === "string" && replyText.trim().startsWith("{")) {
+        try {
+          const parsed = JSON.parse(replyText);
+          replyText = parsed.reply || replyText;
+        } catch {
+          // keep as-is
+        }
+      }
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: data.reply,
+        content: replyText,
         role: "assistant",
         timestamp: new Date(data.timestamp),
         ticket: data.ticket,
@@ -197,7 +224,7 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
           {isAuthenticated ? (
             <>
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto bg-chat-bg p-4">
+              <div className="flex-1 overflow-y-auto bg-chat-bg p-4" style={{ overflowY: "auto" }}>
                 <div className="flex flex-col gap-3">
                   {messages.map((message) => (
                     <ChatMessage key={message.id} message={message} />
