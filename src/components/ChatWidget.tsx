@@ -4,6 +4,7 @@ import { MessageCircle, X, Send, Plane, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { normalizeChatResponse } from "@/lib/chat-response";
 import { useAuth } from "@/contexts/AuthContext";
 import ChatMessage from "./ChatMessage";
 import TicketCelebration from "./TicketCelebration";
@@ -24,28 +25,21 @@ interface TicketInfo {
   emailSent: boolean;
 }
 
-interface ApiResponse {
-  sessionId: string;
-  reply: string;
-  actions: string[];
-  conversationStatus: string;
-  timestamp: string;
-  ticket?: TicketInfo;
-}
-
 const WEBHOOK_URL = "https://ntihishkkumarg.app.n8n.cloud/webhook/airline-chatbot";
+
+const createDefaultMessages = (): Message[] => [
+  {
+    id: "welcome",
+    content: "Hello! Welcome to Tata Airways support. How can I assist you today?",
+    role: "assistant",
+    timestamp: new Date(),
+  },
+];
 
 const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
   const { isAuthenticated, getToken } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "welcome",
-      content: "Hello! Welcome to Tata Airways support. How can I assist you today?",
-      role: "assistant",
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>(createDefaultMessages);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [celebrationTicket, setCelebrationTicket] = useState<TicketInfo | null>(null);
@@ -69,18 +63,9 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const defaultMessages: Message[] = [
-    {
-      id: "welcome",
-      content: "Hello! Welcome to Tata Airways support. How can I assist you today?",
-      role: "assistant",
-      timestamp: new Date(),
-    },
-  ];
-
   // Clear messages when auth state changes (logout/login)
   useEffect(() => {
-    setMessages(defaultMessages);
+    setMessages(createDefaultMessages());
     clearSessionId();
   }, [isAuthenticated]);
 
@@ -122,22 +107,11 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
       });
 
       const raw = await response.json();
-      // Handle both direct response and wrapped response formats
-      const data: ApiResponse = raw.reply && typeof raw.reply === "object" ? raw.reply : raw;
-      // If reply is still a JSON string, try to parse it
-      let replyText = data.reply;
-      if (typeof replyText === "string" && replyText.trim().startsWith("{")) {
-        try {
-          const parsed = JSON.parse(replyText);
-          replyText = parsed.reply || replyText;
-        } catch {
-          // keep as-is
-        }
-      }
+      const data = normalizeChatResponse(raw);
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: replyText,
+        content: data.reply,
         role: "assistant",
         timestamp: new Date(data.timestamp),
         ticket: data.ticket,
@@ -212,7 +186,7 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
         </div>
 
         {/* Content */}
-        <div className="relative flex-1 flex flex-col">
+        <div className="relative flex min-h-0 flex-1 flex-col">
           {/* Celebration overlay */}
           {celebrationTicket && (
             <TicketCelebration
@@ -224,7 +198,7 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
           {isAuthenticated ? (
             <>
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto bg-chat-bg p-4" style={{ overflowY: "auto" }}>
+                <div className="min-h-0 flex-1 overflow-y-auto bg-chat-bg p-4">
                 <div className="flex flex-col gap-3">
                   {messages.map((message) => (
                     <ChatMessage key={message.id} message={message} />
