@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, ReactNode } from "react";
 import { v4 as uuidv4 } from "uuid";
+import { SignJWT } from "jose";
 
 interface User {
   username: string;
@@ -26,8 +27,10 @@ export const useAuth = () => {
 const base64url = (str: string) =>
   btoa(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
-const createJwt = (username: string) => {
-  const header = { alg: "HS256", typ: "JWT" };
+const createJwt = async (username: string) => {
+  const JWT_SECRET = new TextEncoder().encode(
+    "K9x*P2mL8vQ1@rT6yU$wE3zA7!nB5cD0fG2hJ4kL9pS1xV6mN8qR3tY7uI0oW5eZ"
+  );
 
   const now = Math.floor(Date.now() / 1000);
   const payload = {
@@ -36,20 +39,26 @@ const createJwt = (username: string) => {
     personId: `${uuidv4()}`,
     profileId: `pro-${String(Math.floor(Math.random() * 999) + 1).padStart(3, "0")}`,
     lastName: "User",
-    email: `${username.toLowerCase()}@tataairways.com`,
+    email: `${username.toLowerCase()}@gmail.com`,
     loyaltyId: String(Math.floor(100000 + Math.random() * 900000)),
     admin: false,
+    iss: "airline-chatbot-api",
+    aud: "airline-chatbot-client",
     iat: now,
     exp: now + 86400,
   };
 
-  const encodedHeader = base64url(JSON.stringify(header));
-  const encodedPayload = base64url(JSON.stringify(payload));
-  // Mock signature (not cryptographically valid, but structurally correct JWT)
-  const mockSignature = base64url(`mock-sig-${now}`);
+  const token = await new SignJWT(payload)
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt(now)
+    .setExpirationTime(now + 86400)
+    .setAudience("airline-chatbot-client")
+    .setIssuer("airline-chatbot-api")
+    .sign(JWT_SECRET);
 
-  return `${encodedHeader}.${encodedPayload}.${mockSignature}`;
+  return token;
 };
+
 
 const COOKIE_NAME = "tata_auth_token";
 
@@ -79,7 +88,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   });
 
   const login = async (username: string, _password: string) => {
-    const token = createJwt(username);
+    const token = await createJwt(username);
     setTokenCookie(token);
     const userData = { username, token };
     setUser(userData);

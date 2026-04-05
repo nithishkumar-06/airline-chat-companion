@@ -25,7 +25,7 @@ interface TicketInfo {
   emailSent: boolean;
 }
 
-const WEBHOOK_URL = "https://ntihishkkumarg.app.n8n.cloud/webhook/airline-chatbot";
+const WEBHOOK_URL = "https://airline-chatbot-v1-615090826594.asia-south1.run.app/api/v1/chat";
 
 const createDefaultMessages = (): Message[] => [
   {
@@ -101,7 +101,7 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
           "Authorization": `Bearer ${getToken()}`,
         },
         body: JSON.stringify({
-          usermessage: userMessage.content,
+          message: userMessage.content,
           sessionId: getSessionId(),
         }),
       });
