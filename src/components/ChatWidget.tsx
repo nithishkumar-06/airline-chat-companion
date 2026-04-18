@@ -86,6 +86,8 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
     clearSessionId();
     recognition.cancel();
     synth.cancel();
+    waveform.stop();
+    setUserLang("en");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
@@ -104,6 +106,7 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
     if (!isOpen) {
       recognition.cancel();
       synth.cancel();
+      waveform.stop();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -113,6 +116,7 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
     if (!voiceMode) {
       recognition.cancel();
       synth.cancel();
+      waveform.stop();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [voiceMode]);
