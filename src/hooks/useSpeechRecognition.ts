@@ -5,7 +5,7 @@ export interface UseSpeechRecognitionResult {
   isRecording: boolean;
   finalText: string;
   interimText: string;
-  start: () => void;
+  start: (lang?: string) => void;
   stop: () => void;
   cancel: () => void;
   setFinalText: (text: string) => void;
@@ -34,7 +34,9 @@ export const useSpeechRecognition = (): UseSpeechRecognitionResult => {
     if (recognitionRef.current) return recognitionRef.current;
 
     const recognition = new SpeechRecognitionCtor();
-    recognition.lang = "en-US";
+    // Empty string lets the browser auto-detect when supported. Some engines
+    // ignore "" — we'll override via start(lang) when caller knows better.
+    recognition.lang = "";
     recognition.continuous = false;
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
@@ -74,16 +76,22 @@ export const useSpeechRecognition = (): UseSpeechRecognitionResult => {
     return recognition;
   }, [SpeechRecognitionCtor, updateFinal]);
 
-  const start = useCallback(() => {
-    const r = ensureInstance();
-    if (!r) return;
-    try {
-      r.start();
-      setIsRecording(true);
-    } catch {
-      // already started
-    }
-  }, [ensureInstance]);
+  const start = useCallback(
+    (lang?: string) => {
+      const r = ensureInstance();
+      if (!r) return;
+      try {
+        // Allow caller to bias recognition to a specific BCP-47 locale once
+        // it's been detected on a previous turn.
+        r.lang = lang ?? "";
+        r.start();
+        setIsRecording(true);
+      } catch {
+        // already started
+      }
+    },
+    [ensureInstance],
+  );
 
   const stop = useCallback(() => {
     const r = recognitionRef.current;

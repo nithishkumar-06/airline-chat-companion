@@ -12,9 +12,23 @@ const PREFERRED_VOICES = [
 export interface UseSpeechSynthesisResult {
   isSupported: boolean;
   isSpeaking: boolean;
-  speak: (text: string) => void;
+  speak: (text: string, lang?: string) => void;
   cancel: () => void;
 }
+
+const pickVoiceForLang = (lang: string): SpeechSynthesisVoice | null => {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return null;
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices.length) return null;
+  const lower = lang.toLowerCase();
+  const base = lower.split("-")[0];
+  return (
+    voices.find((v) => v.lang?.toLowerCase() === lower) ??
+    voices.find((v) => v.lang?.toLowerCase().startsWith(base + "-")) ??
+    voices.find((v) => v.lang?.toLowerCase() === base) ??
+    null
+  );
+};
 
 export const useSpeechSynthesis = (): UseSpeechSynthesisResult => {
   const isSupported = typeof window !== "undefined" && "speechSynthesis" in window;
@@ -45,15 +59,20 @@ export const useSpeechSynthesis = (): UseSpeechSynthesisResult => {
   }, [isSupported, pickVoice]);
 
   const speak = useCallback(
-    (text: string) => {
+    (text: string, lang?: string) => {
       if (!isSupported || !text?.trim()) return;
       try {
         window.speechSynthesis.cancel();
         const utter = new SpeechSynthesisUtterance(text);
-        utter.lang = "en-US";
+        const targetLang = lang || "en-US";
+        utter.lang = targetLang;
         utter.rate = 1;
         utter.pitch = 1;
-        if (voiceRef.current) utter.voice = voiceRef.current;
+        // Prefer a voice that matches the requested language; fall back to the
+        // English voice we picked at init time, otherwise system default.
+        const langVoice = lang ? pickVoiceForLang(targetLang) : null;
+        const chosen = langVoice ?? voiceRef.current;
+        if (chosen) utter.voice = chosen;
         utter.onstart = () => setIsSpeaking(true);
         utter.onend = () => setIsSpeaking(false);
         utter.onerror = () => setIsSpeaking(false);

@@ -8,6 +8,9 @@ import { normalizeChatResponse } from "@/lib/chat-response";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis";
+import { useAudioWaveform } from "@/hooks/useAudioWaveform";
+import { detectAndTranslateToEnglish, translateText, toBcp47 } from "@/lib/translate";
+import VoiceWaveform from "./VoiceWaveform";
 import ChatMessage from "./ChatMessage";
 import TicketCelebration from "./TicketCelebration";
 
@@ -47,11 +50,15 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
   const [celebrationTicket, setCelebrationTicket] = useState<TicketInfo | null>(null);
   const [voiceMode, setVoiceMode] = useState(false);
   const [ttsEnabled, setTtsEnabled] = useState(true);
+  // Tracks the user's currently detected language (Google short code, e.g. "ta", "en").
+  // Used to translate assistant replies back and to bias TTS / next mic session.
+  const [userLang, setUserLang] = useState<string>("en");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const recognition = useSpeechRecognition();
   const synth = useSpeechSynthesis();
+  const waveform = useAudioWaveform();
 
   const hasTranscript = !!(recognition.finalText.trim() || recognition.interimText.trim());
   const showRecordingLayout = voiceMode && (recognition.isRecording || (hasTranscript && !inputValue));
@@ -79,6 +86,8 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
     clearSessionId();
     recognition.cancel();
     synth.cancel();
+    waveform.stop();
+    setUserLang("en");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
@@ -97,6 +106,7 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
     if (!isOpen) {
       recognition.cancel();
       synth.cancel();
+      waveform.stop();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -106,6 +116,7 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
     if (!voiceMode) {
       recognition.cancel();
       synth.cancel();
+      waveform.stop();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [voiceMode]);
@@ -116,22 +127,43 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ttsEnabled]);
 
-  const sendMessage = async (overrideText?: string) => {
+  /**
+   * Send a message to the backend.
+   * - In text mode: sends `text` as-is, displays as-is, replies shown as-is.
+   * - In voice mode (`fromVoice=true`): detects user language, sends English to
+   *   backend, displays original transcript in user's language, translates the
+   *   reply back into that language for both display and TTS.
+   */
+  const sendMessage = async (overrideText?: string, fromVoice = false) => {
     const text = (overrideText ?? inputValue).trim();
     if (!text || isLoading || !isAuthenticated) return;
 
+    setInputValue("");
+    recognition.cancel();
+    waveform.stop();
+    synth.cancel();
+    setIsLoading(true);
+
+    // Resolve original display text + English payload + detected language.
+    let displayText = text;
+    let englishText = text;
+    let detectedLang = userLang;
+
+    if (fromVoice) {
+      const result = await detectAndTranslateToEnglish(text);
+      detectedLang = result.detectedLang || "en";
+      englishText = result.translatedText || text;
+      displayText = text; // show what the user actually said, in their language
+      setUserLang(detectedLang);
+    }
+
     const userMessage: Message = {
       id: Date.now().toString(),
-      content: text,
+      content: displayText,
       role: "user",
       timestamp: new Date(),
     };
-
     setMessages((prev) => [...prev, userMessage]);
-    setInputValue("");
-    recognition.cancel();
-    synth.cancel();
-    setIsLoading(true);
 
     try {
       const response = await fetch(WEBHOOK_URL, {
@@ -141,7 +173,7 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
           "Authorization": `Bearer ${getToken()}`,
         },
         body: JSON.stringify({
-          message: userMessage.content,
+          message: englishText,
           sessionId: getSessionId(),
         }),
       });
@@ -149,9 +181,16 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
       const raw = await response.json();
       const data = normalizeChatResponse(raw);
 
+      // Translate reply into user's language when needed (voice mode + non-English).
+      let replyText = data.reply;
+      const baseLang = (detectedLang || "en").split("-")[0];
+      if (voiceMode && replyText && baseLang && baseLang !== "en") {
+        replyText = await translateText(replyText, baseLang, "en");
+      }
+
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: data.reply,
+        content: replyText,
         role: "assistant",
         timestamp: new Date(data.timestamp),
         ticket: data.ticket,
@@ -163,8 +202,8 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
         setCelebrationTicket(data.ticket);
       }
 
-      if (voiceMode && ttsEnabled && data.reply) {
-        synth.speak(data.reply);
+      if (voiceMode && ttsEnabled && replyText) {
+        synth.speak(replyText, toBcp47(baseLang || "en"));
       }
 
       if (data.conversationStatus === "escalated" || data.conversationStatus === "completed") {
@@ -197,24 +236,31 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
       recognition.setFinalText(inputValue.trim());
       setInputValue("");
     }
-    recognition.start();
+    // Bias recognition to the previously detected language (if any). First
+    // turn uses "" so the browser auto-detects.
+    const lang = userLang && userLang !== "en" ? toBcp47(userLang) : "";
+    recognition.start(lang);
+    waveform.start();
   };
 
   const handleMicPause = () => {
     recognition.stop();
+    waveform.stop();
     const text = (recognition.finalText + " " + recognition.interimText).trim();
     if (text) setInputValue(text);
   };
 
   const handleMicCancel = () => {
     recognition.cancel();
+    waveform.stop();
     setInputValue("");
   };
 
   const handleMicSend = () => {
     const text = (recognition.finalText + " " + recognition.interimText).trim() || inputValue.trim();
     recognition.cancel();
-    if (text) sendMessage(text);
+    waveform.stop();
+    if (text) sendMessage(text, true);
   };
 
   const toggleVoiceMode = () => {
@@ -338,6 +384,9 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
               <div className="border-t bg-card p-4">
                 {showRecordingLayout ? (
                   <div className="space-y-3">
+                    {recognition.isRecording && (
+                      <VoiceWaveform bars={waveform.bars} active={waveform.isActive} />
+                    )}
                     <div className="relative rounded-lg border border-primary/30 bg-muted/40 p-3 min-h-[60px]">
                       <p className="text-sm text-foreground whitespace-pre-wrap pr-16">
                         {recognition.finalText}
