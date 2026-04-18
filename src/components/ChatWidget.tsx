@@ -8,6 +8,9 @@ import { normalizeChatResponse } from "@/lib/chat-response";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis";
+import { useAudioWaveform } from "@/hooks/useAudioWaveform";
+import { detectAndTranslateToEnglish, translateText, toBcp47 } from "@/lib/translate";
+import VoiceWaveform from "./VoiceWaveform";
 import ChatMessage from "./ChatMessage";
 import TicketCelebration from "./TicketCelebration";
 
@@ -47,11 +50,15 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
   const [celebrationTicket, setCelebrationTicket] = useState<TicketInfo | null>(null);
   const [voiceMode, setVoiceMode] = useState(false);
   const [ttsEnabled, setTtsEnabled] = useState(true);
+  // Tracks the user's currently detected language (Google short code, e.g. "ta", "en").
+  // Used to translate assistant replies back and to bias TTS / next mic session.
+  const [userLang, setUserLang] = useState<string>("en");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const recognition = useSpeechRecognition();
   const synth = useSpeechSynthesis();
+  const waveform = useAudioWaveform();
 
   const hasTranscript = !!(recognition.finalText.trim() || recognition.interimText.trim());
   const showRecordingLayout = voiceMode && (recognition.isRecording || (hasTranscript && !inputValue));
