@@ -384,6 +384,9 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
               <div className="border-t bg-card p-4">
                 {showRecordingLayout ? (
                   <div className="space-y-3">
+                    {recognition.isRecording && (
+                      <VoiceWaveform bars={waveform.bars} active={waveform.isActive} />
+                    )}
                     <div className="relative rounded-lg border border-primary/30 bg-muted/40 p-3 min-h-[60px]">
                       <p className="text-sm text-foreground whitespace-pre-wrap pr-16">
                         {recognition.finalText}
