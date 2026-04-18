@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { MessageCircle, X, Send, Plane, LogIn } from "lucide-react";
+import { MessageCircle, X, Send, Plane, LogIn, Mic, MicOff, Volume2, VolumeX, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { normalizeChatResponse } from "@/lib/chat-response";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
+import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis";
 import ChatMessage from "./ChatMessage";
 import TicketCelebration from "./TicketCelebration";
 
@@ -43,8 +45,16 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [celebrationTicket, setCelebrationTicket] = useState<TicketInfo | null>(null);
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [ttsEnabled, setTtsEnabled] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const recognition = useSpeechRecognition();
+  const synth = useSpeechSynthesis();
+
+  const hasTranscript = !!(recognition.finalText.trim() || recognition.interimText.trim());
+  const showRecordingLayout = voiceMode && (recognition.isRecording || (hasTranscript && !inputValue));
 
   const getSessionId = () => {
     let sessionId = localStorage.getItem("chat_session_id");
@@ -67,6 +77,9 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
   useEffect(() => {
     setMessages(createDefaultMessages());
     clearSessionId();
+    recognition.cancel();
+    synth.cancel();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
   useEffect(() => {
@@ -74,23 +87,50 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
   }, [messages]);
 
   useEffect(() => {
-    if (isOpen && inputRef.current && isAuthenticated) {
+    if (isOpen && inputRef.current && isAuthenticated && !showRecordingLayout) {
       inputRef.current.focus();
     }
-  }, [isOpen, isAuthenticated]);
+  }, [isOpen, isAuthenticated, showRecordingLayout]);
 
-  const sendMessage = async () => {
-    if (!inputValue.trim() || isLoading || !isAuthenticated) return;
+  // Stop speech / recording when widget closes
+  useEffect(() => {
+    if (!isOpen) {
+      recognition.cancel();
+      synth.cancel();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  // Cleanup when voice mode turns off
+  useEffect(() => {
+    if (!voiceMode) {
+      recognition.cancel();
+      synth.cancel();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voiceMode]);
+
+  // Mute toggle stops ongoing speech
+  useEffect(() => {
+    if (!ttsEnabled) synth.cancel();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ttsEnabled]);
+
+  const sendMessage = async (overrideText?: string) => {
+    const text = (overrideText ?? inputValue).trim();
+    if (!text || isLoading || !isAuthenticated) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
-      content: inputValue.trim(),
+      content: text,
       role: "user",
       timestamp: new Date(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
     setInputValue("");
+    recognition.cancel();
+    synth.cancel();
     setIsLoading(true);
 
     try {
@@ -123,6 +163,10 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
         setCelebrationTicket(data.ticket);
       }
 
+      if (voiceMode && ttsEnabled && data.reply) {
+        synth.speak(data.reply);
+      }
+
       if (data.conversationStatus === "escalated" || data.conversationStatus === "completed") {
         clearSessionId();
       }
@@ -144,6 +188,42 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
       e.preventDefault();
       sendMessage();
     }
+  };
+
+  const handleMicStart = () => {
+    if (!recognition.isSupported) return;
+    // If user had paused with text in input, push it back to finalText so it accumulates
+    if (inputValue.trim() && !recognition.finalText.trim()) {
+      recognition.setFinalText(inputValue.trim());
+      setInputValue("");
+    }
+    recognition.start();
+  };
+
+  const handleMicPause = () => {
+    recognition.stop();
+    const text = (recognition.finalText + " " + recognition.interimText).trim();
+    if (text) setInputValue(text);
+  };
+
+  const handleMicCancel = () => {
+    recognition.cancel();
+    setInputValue("");
+  };
+
+  const handleMicSend = () => {
+    const text = (recognition.finalText + " " + recognition.interimText).trim() || inputValue.trim();
+    recognition.cancel();
+    if (text) sendMessage(text);
+  };
+
+  const toggleVoiceMode = () => {
+    if (!recognition.isSupported) return;
+    setVoiceMode((v) => {
+      const next = !v;
+      if (next) setTtsEnabled(true);
+      return next;
+    });
   };
 
   return (
@@ -175,11 +255,49 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-foreground/20">
             <Plane className="h-5 w-5 text-primary-foreground" />
           </div>
-          <div className="flex-1">
-            <h3 className="font-semibold text-primary-foreground">Tata Airways</h3>
-            <p className="text-xs text-primary-foreground/80">Customer Support</p>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-primary-foreground truncate">Tata Airways</h3>
+            <p className="text-xs text-primary-foreground/80 truncate">Customer Support</p>
           </div>
-          <div className="flex items-center gap-1.5">
+
+          {isAuthenticated && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={toggleVoiceMode}
+                disabled={!recognition.isSupported}
+                title={
+                  !recognition.isSupported
+                    ? "Voice not supported in this browser"
+                    : voiceMode
+                      ? "Disable voice mode"
+                      : "Enable voice mode"
+                }
+                className={cn(
+                  "flex h-8 w-8 items-center justify-center rounded-full transition-colors",
+                  voiceMode
+                    ? "bg-primary-foreground text-primary"
+                    : "bg-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/30",
+                  !recognition.isSupported && "opacity-50 cursor-not-allowed"
+                )}
+                aria-label="Toggle voice mode"
+              >
+                {voiceMode ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
+              </button>
+
+              {voiceMode && synth.isSupported && (
+                <button
+                  onClick={() => setTtsEnabled((v) => !v)}
+                  title={ttsEnabled ? "Mute voice replies" : "Unmute voice replies"}
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/30 transition-colors"
+                  aria-label="Toggle text-to-speech"
+                >
+                  {ttsEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                </button>
+              )}
+            </div>
+          )}
+
+          <div className="flex items-center gap-1.5 ml-1">
             <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-xs text-primary-foreground/80">Online</span>
           </div>
@@ -198,7 +316,7 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
           {isAuthenticated ? (
             <>
               {/* Messages */}
-                <div className="min-h-0 flex-1 overflow-y-auto bg-chat-bg p-4">
+              <div className="min-h-0 flex-1 overflow-y-auto bg-chat-bg p-4">
                 <div className="flex flex-col gap-3">
                   {messages.map((message) => (
                     <ChatMessage key={message.id} message={message} />
@@ -216,30 +334,109 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
                 </div>
               </div>
 
-              {/* Input */}
+              {/* Input area */}
               <div className="border-t bg-card p-4">
-                <div className="flex gap-2">
-                  <Input
-                    ref={inputRef}
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    onKeyDown={handleKeyPress}
-                    placeholder="Type your message..."
-                    className="flex-1 border-muted bg-muted/50 focus-visible:ring-primary"
-                    disabled={isLoading}
-                  />
-                  <Button
-                    onClick={sendMessage}
-                    disabled={!inputValue.trim() || isLoading}
-                    size="icon"
-                    className="shrink-0"
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </div>
-                <p className="mt-2 text-center text-xs text-muted-foreground">
-                  Powered by Tata Airways
-                </p>
+                {showRecordingLayout ? (
+                  <div className="space-y-3">
+                    <div className="relative rounded-lg border border-primary/30 bg-muted/40 p-3 min-h-[60px]">
+                      <p className="text-sm text-foreground whitespace-pre-wrap pr-16">
+                        {recognition.finalText}
+                        <span className="text-muted-foreground italic">{recognition.interimText}</span>
+                        {!recognition.finalText && !recognition.interimText && (
+                          <span className="text-muted-foreground">Listening...</span>
+                        )}
+                      </p>
+                      {recognition.isRecording && (
+                        <div className="absolute top-2 right-2 flex items-center gap-1.5">
+                          <span className="relative flex h-2.5 w-2.5">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive opacity-75" />
+                            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-destructive" />
+                          </span>
+                          <span className="text-[10px] font-medium uppercase tracking-wide text-destructive">Rec</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <Button
+                        onClick={handleMicCancel}
+                        variant="ghost"
+                        size="icon"
+                        className="text-muted-foreground hover:text-destructive"
+                        aria-label="Cancel recording"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+
+                      {recognition.isRecording ? (
+                        <Button
+                          onClick={handleMicPause}
+                          variant="secondary"
+                          className="gap-2"
+                          aria-label="Pause recording"
+                        >
+                          <Square className="h-4 w-4" />
+                          Pause
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={handleMicStart}
+                          variant="secondary"
+                          className="gap-2"
+                          aria-label="Resume recording"
+                        >
+                          <Mic className="h-4 w-4" />
+                          Resume
+                        </Button>
+                      )}
+
+                      <Button
+                        onClick={handleMicSend}
+                        disabled={!hasTranscript || isLoading}
+                        className="gap-2"
+                        aria-label="Send voice message"
+                      >
+                        <Send className="h-4 w-4" />
+                        Send
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex gap-2">
+                      {voiceMode && recognition.isSupported && (
+                        <Button
+                          onClick={handleMicStart}
+                          size="icon"
+                          variant="secondary"
+                          className="shrink-0"
+                          aria-label="Start voice input"
+                        >
+                          <Mic className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Input
+                        ref={inputRef}
+                        value={inputValue}
+                        onChange={(e) => setInputValue(e.target.value)}
+                        onKeyDown={handleKeyPress}
+                        placeholder={voiceMode ? "Type or tap mic to speak..." : "Type your message..."}
+                        className="flex-1 border-muted bg-muted/50 focus-visible:ring-primary"
+                        disabled={isLoading}
+                      />
+                      <Button
+                        onClick={() => sendMessage()}
+                        disabled={!inputValue.trim() || isLoading}
+                        size="icon"
+                        className="shrink-0"
+                      >
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="mt-2 text-center text-xs text-muted-foreground">
+                      {voiceMode ? "Voice mode on — replies will be spoken" : "Powered by Tata Airways"}
+                    </p>
+                  </>
+                )}
               </div>
             </>
           ) : (
