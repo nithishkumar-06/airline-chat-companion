@@ -1,12 +1,40 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+// Preferred female voices across platforms (macOS, Windows, Chrome, Android).
 const PREFERRED_VOICES = [
+  "Google UK English Female",
   "Google US English",
-  "Samantha",
   "Microsoft Aria Online (Natural) - English (United States)",
   "Microsoft Jenny Online (Natural) - English (United States)",
+  "Microsoft Zira - English (United States)",
   "Microsoft Aria",
   "Microsoft Jenny",
+  "Microsoft Zira",
+  "Samantha",
+  "Karen",
+  "Victoria",
+  "Tessa",
+  "Fiona",
+];
+
+// Heuristic markers that usually indicate a female voice when the explicit
+// preferred list above doesn't match anything on this system.
+const FEMALE_MARKERS = [
+  "female",
+  "aria",
+  "jenny",
+  "zira",
+  "samantha",
+  "karen",
+  "victoria",
+  "tessa",
+  "fiona",
+  "susan",
+  "linda",
+  "heather",
+  "catherine",
+  "serena",
+  "moira",
 ];
 
 export interface UseSpeechSynthesisResult {
