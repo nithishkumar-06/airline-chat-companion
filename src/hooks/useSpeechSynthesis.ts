@@ -44,18 +44,31 @@ export interface UseSpeechSynthesisResult {
   cancel: () => void;
 }
 
+const isLikelyFemale = (v: SpeechSynthesisVoice): boolean => {
+  const name = (v.name || "").toLowerCase();
+  return FEMALE_MARKERS.some((m) => name.includes(m));
+};
+
 const pickVoiceForLang = (lang: string): SpeechSynthesisVoice | null => {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return null;
   const voices = window.speechSynthesis.getVoices();
   if (!voices.length) return null;
   const lower = lang.toLowerCase();
   const base = lower.split("-")[0];
-  return (
-    voices.find((v) => v.lang?.toLowerCase() === lower) ??
-    voices.find((v) => v.lang?.toLowerCase().startsWith(base + "-")) ??
-    voices.find((v) => v.lang?.toLowerCase() === base) ??
-    null
-  );
+  const matches = [
+    voices.filter((v) => v.lang?.toLowerCase() === lower),
+    voices.filter((v) => v.lang?.toLowerCase().startsWith(base + "-")),
+    voices.filter((v) => v.lang?.toLowerCase() === base),
+  ];
+  for (const group of matches) {
+    if (!group.length) continue;
+    const female = group.find(isLikelyFemale);
+    if (female) return female;
+  }
+  for (const group of matches) {
+    if (group.length) return group[0];
+  }
+  return null;
 };
 
 export const useSpeechSynthesis = (): UseSpeechSynthesisResult => {
@@ -72,6 +85,8 @@ export const useSpeechSynthesis = (): UseSpeechSynthesisResult => {
       chosen = voices.find((v) => v.name === name);
       if (chosen) break;
     }
+    // Prefer any English female voice we can find.
+    if (!chosen) chosen = voices.find((v) => v.lang?.startsWith("en") && isLikelyFemale(v));
     if (!chosen) chosen = voices.find((v) => v.lang === "en-US");
     if (!chosen) chosen = voices.find((v) => v.lang?.startsWith("en"));
     voiceRef.current = chosen ?? null;
