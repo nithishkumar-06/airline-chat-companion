@@ -20,6 +20,11 @@ export const useSpeechRecognition = (): UseSpeechRecognitionResult => {
 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const finalTextRef = useRef<string>("");
+  // Tracks user intent: true means we want to keep listening even if the
+  // browser fires `onend` (which Chrome does after short silences). We use
+  // this flag to auto-restart recognition for a continuous-feel experience.
+  const wantRecordingRef = useRef(false);
+  const currentLangRef = useRef<string>("");
   const [isRecording, setIsRecording] = useState(false);
   const [finalText, setFinalTextState] = useState("");
   const [interimText, setInterimText] = useState("");
@@ -34,10 +39,11 @@ export const useSpeechRecognition = (): UseSpeechRecognitionResult => {
     if (recognitionRef.current) return recognitionRef.current;
 
     const recognition = new SpeechRecognitionCtor();
-    // Empty string lets the browser auto-detect when supported. Some engines
-    // ignore "" — we'll override via start(lang) when caller knows better.
     recognition.lang = "";
-    recognition.continuous = false;
+    // continuous=true keeps the engine alive across pauses in speech so the
+    // user doesn't get cut off mid-thought. We still auto-restart on onend
+    // for engines that ignore the flag.
+    recognition.continuous = true;
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
 
@@ -62,14 +68,41 @@ export const useSpeechRecognition = (): UseSpeechRecognitionResult => {
       setInterimText(interim);
     };
 
-    recognition.onerror = () => {
-      setIsRecording(false);
-      setInterimText("");
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      // "no-speech" and "aborted" are common transient errors. Only stop the
+      // session for permanent failures.
+      const err = (event as unknown as { error?: string })?.error;
+      if (err === "not-allowed" || err === "service-not-allowed" || err === "audio-capture") {
+        wantRecordingRef.current = false;
+        setIsRecording(false);
+        setInterimText("");
+      }
     };
 
     recognition.onend = () => {
-      setIsRecording(false);
       setInterimText("");
+      // Auto-restart while user still wants to record. Chrome ends the
+      // session after ~5s of silence even with continuous=true.
+      if (wantRecordingRef.current) {
+        try {
+          recognition.lang = currentLangRef.current;
+          recognition.start();
+        } catch {
+          // start() can throw "InvalidStateError" if engine hasn't fully
+          // released. Schedule a retry on the next tick.
+          setTimeout(() => {
+            if (!wantRecordingRef.current) return;
+            try {
+              recognition.start();
+            } catch {
+              wantRecordingRef.current = false;
+              setIsRecording(false);
+            }
+          }, 250);
+        }
+      } else {
+        setIsRecording(false);
+      }
     };
 
     recognitionRef.current = recognition;
@@ -80,14 +113,15 @@ export const useSpeechRecognition = (): UseSpeechRecognitionResult => {
     (lang?: string) => {
       const r = ensureInstance();
       if (!r) return;
+      currentLangRef.current = lang ?? "";
+      r.lang = currentLangRef.current;
+      wantRecordingRef.current = true;
       try {
-        // Allow caller to bias recognition to a specific BCP-47 locale once
-        // it's been detected on a previous turn.
-        r.lang = lang ?? "";
         r.start();
         setIsRecording(true);
       } catch {
-        // already started
+        // already started — onend handler will keep it alive
+        setIsRecording(true);
       }
     },
     [ensureInstance],
@@ -95,6 +129,7 @@ export const useSpeechRecognition = (): UseSpeechRecognitionResult => {
 
   const stop = useCallback(() => {
     const r = recognitionRef.current;
+    wantRecordingRef.current = false;
     if (!r) return;
     try {
       r.stop();
@@ -106,6 +141,7 @@ export const useSpeechRecognition = (): UseSpeechRecognitionResult => {
 
   const cancel = useCallback(() => {
     const r = recognitionRef.current;
+    wantRecordingRef.current = false;
     if (r) {
       try {
         r.abort();

@@ -1,12 +1,40 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+// Preferred female voices across platforms (macOS, Windows, Chrome, Android).
 const PREFERRED_VOICES = [
+  "Google UK English Female",
   "Google US English",
-  "Samantha",
   "Microsoft Aria Online (Natural) - English (United States)",
   "Microsoft Jenny Online (Natural) - English (United States)",
+  "Microsoft Zira - English (United States)",
   "Microsoft Aria",
   "Microsoft Jenny",
+  "Microsoft Zira",
+  "Samantha",
+  "Karen",
+  "Victoria",
+  "Tessa",
+  "Fiona",
+];
+
+// Heuristic markers that usually indicate a female voice when the explicit
+// preferred list above doesn't match anything on this system.
+const FEMALE_MARKERS = [
+  "female",
+  "aria",
+  "jenny",
+  "zira",
+  "samantha",
+  "karen",
+  "victoria",
+  "tessa",
+  "fiona",
+  "susan",
+  "linda",
+  "heather",
+  "catherine",
+  "serena",
+  "moira",
 ];
 
 export interface UseSpeechSynthesisResult {
@@ -16,18 +44,31 @@ export interface UseSpeechSynthesisResult {
   cancel: () => void;
 }
 
+const isLikelyFemale = (v: SpeechSynthesisVoice): boolean => {
+  const name = (v.name || "").toLowerCase();
+  return FEMALE_MARKERS.some((m) => name.includes(m));
+};
+
 const pickVoiceForLang = (lang: string): SpeechSynthesisVoice | null => {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return null;
   const voices = window.speechSynthesis.getVoices();
   if (!voices.length) return null;
   const lower = lang.toLowerCase();
   const base = lower.split("-")[0];
-  return (
-    voices.find((v) => v.lang?.toLowerCase() === lower) ??
-    voices.find((v) => v.lang?.toLowerCase().startsWith(base + "-")) ??
-    voices.find((v) => v.lang?.toLowerCase() === base) ??
-    null
-  );
+  const matches = [
+    voices.filter((v) => v.lang?.toLowerCase() === lower),
+    voices.filter((v) => v.lang?.toLowerCase().startsWith(base + "-")),
+    voices.filter((v) => v.lang?.toLowerCase() === base),
+  ];
+  for (const group of matches) {
+    if (!group.length) continue;
+    const female = group.find(isLikelyFemale);
+    if (female) return female;
+  }
+  for (const group of matches) {
+    if (group.length) return group[0];
+  }
+  return null;
 };
 
 export const useSpeechSynthesis = (): UseSpeechSynthesisResult => {
@@ -44,6 +85,8 @@ export const useSpeechSynthesis = (): UseSpeechSynthesisResult => {
       chosen = voices.find((v) => v.name === name);
       if (chosen) break;
     }
+    // Prefer any English female voice we can find.
+    if (!chosen) chosen = voices.find((v) => v.lang?.startsWith("en") && isLikelyFemale(v));
     if (!chosen) chosen = voices.find((v) => v.lang === "en-US");
     if (!chosen) chosen = voices.find((v) => v.lang?.startsWith("en"));
     voiceRef.current = chosen ?? null;

@@ -231,6 +231,9 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
 
   const handleMicStart = () => {
     if (!recognition.isSupported) return;
+    // Stop any in-flight TTS so the assistant's previous reply doesn't bleed
+    // over the user's new voice turn.
+    synth.cancel();
     // If user had paused with text in input, push it back to finalText so it accumulates
     if (inputValue.trim() && !recognition.finalText.trim()) {
       recognition.setFinalText(inputValue.trim());
