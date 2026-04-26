@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import { MessageCircle, X, Send, Plane, LogIn, Mic, MicOff, Volume2, VolumeX, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { normalizeChatResponse } from "@/lib/chat-response";
 import { useAuth } from "@/contexts/AuthContext";
@@ -390,14 +391,24 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
                     {recognition.isRecording && (
                       <VoiceWaveform bars={waveform.bars} active={waveform.isActive} />
                     )}
-                    <div className="relative rounded-lg border border-primary/30 bg-muted/40 p-3 min-h-[60px]">
-                      <p className="text-sm text-foreground whitespace-pre-wrap pr-16">
-                        {recognition.finalText}
-                        <span className="text-muted-foreground italic">{recognition.interimText}</span>
-                        {!recognition.finalText && !recognition.interimText && (
-                          <span className="text-muted-foreground">Listening...</span>
-                        )}
-                      </p>
+                    <div className="relative rounded-lg border border-primary/30 bg-muted/40 min-h-[60px]">
+                      {recognition.isRecording ? (
+                        <p className="text-sm text-foreground whitespace-pre-wrap pr-16 p-3">
+                          {recognition.finalText}
+                          <span className="text-muted-foreground italic">{recognition.interimText}</span>
+                          {!recognition.finalText && !recognition.interimText && (
+                            <span className="text-muted-foreground">Listening...</span>
+                          )}
+                        </p>
+                      ) : (
+                        <Textarea
+                          value={recognition.finalText}
+                          onChange={(e) => recognition.setFinalText(e.target.value)}
+                          placeholder="Edit your message..."
+                          className="min-h-[60px] resize-none border-0 bg-transparent text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
+                          autoFocus
+                        />
+                      )}
                       {recognition.isRecording && (
                         <div className="absolute top-2 right-2 flex items-center gap-1.5">
                           <span className="relative flex h-2.5 w-2.5">
