@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import { MessageCircle, X, Send, Plane, LogIn, Mic, MicOff, Volume2, VolumeX, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { normalizeChatResponse } from "@/lib/chat-response";
 import { useAuth } from "@/contexts/AuthContext";
