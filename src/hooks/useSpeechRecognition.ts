@@ -116,8 +116,15 @@ export const useSpeechRecognition = (): UseSpeechRecognitionResult => {
     (lang?: string) => {
       const r = ensureInstance();
       if (!r) return;
-      currentLangRef.current = lang ?? "";
-      r.lang = currentLangRef.current;
+      // Never pass empty lang to Chrome — it causes the engine to delay
+      // capture or drop the first few seconds of audio.
+      const resolvedLang =
+        (lang && lang.trim()) ||
+        currentLangRef.current ||
+        (typeof navigator !== "undefined" && navigator.language) ||
+        "en-US";
+      currentLangRef.current = resolvedLang;
+      r.lang = resolvedLang;
       wantRecordingRef.current = true;
       try {
         r.start();
