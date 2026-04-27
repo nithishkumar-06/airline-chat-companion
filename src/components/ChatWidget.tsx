@@ -31,7 +31,7 @@ interface TicketInfo {
   emailSent: boolean;
 }
 
-const WEBHOOK_URL = "https://airline-chatbot-v2-615090826594.asia-south1.run.app/api/v1/chat";
+const WEBHOOK_URL = "https://airline-chatbot-v3-615090826594.asia-south1.run.app/api/v1/chat";
 
 const createDefaultMessages = (): Message[] => [
   {
