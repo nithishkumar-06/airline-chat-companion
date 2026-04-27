@@ -142,6 +142,21 @@ export const useSpeechRecognition = (): UseSpeechRecognitionResult => {
     [ensureInstance],
   );
 
+  const prepare = useCallback(
+    (lang?: string) => {
+      const r = ensureInstance();
+      if (!r) return;
+      const resolvedLang =
+        (lang && lang.trim()) ||
+        currentLangRef.current ||
+        (typeof navigator !== "undefined" && navigator.language) ||
+        "en-US";
+      currentLangRef.current = resolvedLang;
+      r.lang = resolvedLang;
+    },
+    [ensureInstance],
+  );
+
   const stop = useCallback(() => {
     const r = recognitionRef.current;
     wantRecordingRef.current = false;
@@ -189,5 +204,5 @@ export const useSpeechRecognition = (): UseSpeechRecognitionResult => {
     };
   }, []);
 
-  return { isSupported, isRecording, finalText, interimText, start, stop, cancel, setFinalText };
+  return { isSupported, isRecording, finalText, interimText, prepare, start, stop, cancel, setFinalText };
 };
