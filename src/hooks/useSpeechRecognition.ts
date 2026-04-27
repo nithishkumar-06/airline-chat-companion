@@ -39,7 +39,10 @@ export const useSpeechRecognition = (): UseSpeechRecognitionResult => {
     if (recognitionRef.current) return recognitionRef.current;
 
     const recognition = new SpeechRecognitionCtor();
-    recognition.lang = "";
+    // Chrome's SpeechRecognition silently drops initial audio (or delays
+    // start by several seconds) when `lang` is empty. Always set a concrete
+    // language so capture begins immediately on .start().
+    recognition.lang = "en-US";
     // continuous=true keeps the engine alive across pauses in speech so the
     // user doesn't get cut off mid-thought. We still auto-restart on onend
     // for engines that ignore the flag.
