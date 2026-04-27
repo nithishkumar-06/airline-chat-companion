@@ -33,6 +33,11 @@ interface TicketInfo {
 
 const WEBHOOK_URL = "https://airline-chatbot-v2-615090826594.asia-south1.run.app/api/v1/chat";
 
+// Feature flag: set to true to re-enable the voice + text hybrid mode (mic
+// button, TTS, language detection, waveform UI). When false, the widget runs
+// in text-only mode and no voice UI is shown.
+const VOICE_MODE_ENABLED = false;
+
 const createDefaultMessages = (): Message[] => [
   {
     id: "welcome",
@@ -62,7 +67,8 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
   const waveform = useAudioWaveform();
 
   const hasTranscript = !!(recognition.finalText.trim() || recognition.interimText.trim());
-  const showRecordingLayout = voiceMode && (recognition.isRecording || (hasTranscript && !inputValue));
+  const showRecordingLayout =
+    VOICE_MODE_ENABLED && voiceMode && (recognition.isRecording || (hasTranscript && !inputValue));
 
   const getSessionId = () => {
     let sessionId = localStorage.getItem("chat_session_id");
@@ -118,6 +124,8 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
       recognition.cancel();
       synth.cancel();
       waveform.stop();
+    } else {
+      recognition.prepare(userLang && userLang !== "en" ? toBcp47(userLang) : "en-US");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [voiceMode]);
@@ -230,7 +238,7 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
     }
   };
 
-  const handleMicStart = () => {
+  const handleMicStart = async () => {
     if (!recognition.isSupported) return;
     // Stop any in-flight TTS so the assistant's previous reply doesn't bleed
     // over the user's new voice turn.
@@ -240,11 +248,14 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
       recognition.setFinalText(inputValue.trim());
       setInputValue("");
     }
-    // Bias recognition to the previously detected language (if any). First
-    // turn uses "" so the browser auto-detects.
-    const lang = userLang && userLang !== "en" ? toBcp47(userLang) : "";
+    // Bias recognition to the previously detected language. Default to the
+    // browser locale on the first turn so capture starts instantly (Chrome
+    // delays/drops audio when lang is empty).
+    const lang = userLang && userLang !== "en" ? toBcp47(userLang) : "en-US";
     recognition.start(lang);
-    waveform.start();
+    // Start waveform after recognition so the first voice turn is captured by
+    // SpeechRecognition immediately instead of being blocked by getUserMedia.
+    void waveform.start();
   };
 
   const handleMicPause = () => {
@@ -310,7 +321,7 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
             <p className="text-xs text-primary-foreground/80 truncate">Customer Support</p>
           </div>
 
-          {isAuthenticated && (
+          {VOICE_MODE_ENABLED && isAuthenticated && (
             <div className="flex items-center gap-1">
               <button
                 onClick={toggleVoiceMode}
@@ -466,7 +477,7 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
                 ) : (
                   <>
                     <div className="flex gap-2">
-                      {voiceMode && recognition.isSupported && (
+                      {VOICE_MODE_ENABLED && voiceMode && recognition.isSupported && (
                         <Button
                           onClick={handleMicStart}
                           size="icon"
@@ -482,7 +493,7 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
                         value={inputValue}
                         onChange={(e) => setInputValue(e.target.value)}
                         onKeyDown={handleKeyPress}
-                        placeholder={voiceMode ? "Type or tap mic to speak..." : "Type your message..."}
+                        placeholder={VOICE_MODE_ENABLED && voiceMode ? "Type or tap mic to speak..." : "Type your message..."}
                         className="flex-1 border-muted bg-muted/50 focus-visible:ring-primary"
                         disabled={isLoading}
                       />
@@ -496,7 +507,7 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
                       </Button>
                     </div>
                     <p className="mt-2 text-center text-xs text-muted-foreground">
-                      {voiceMode ? "Voice mode on — replies will be spoken" : "Powered by Tata Airways"}
+                      {VOICE_MODE_ENABLED && voiceMode ? "Voice mode on — replies will be spoken" : "Powered by Tata Airways"}
                     </p>
                   </>
                 )}
