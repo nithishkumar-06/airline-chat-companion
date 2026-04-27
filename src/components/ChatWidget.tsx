@@ -230,7 +230,7 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
     }
   };
 
-  const handleMicStart = () => {
+  const handleMicStart = async () => {
     if (!recognition.isSupported) return;
     // Stop any in-flight TTS so the assistant's previous reply doesn't bleed
     // over the user's new voice turn.
@@ -240,11 +240,21 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
       recognition.setFinalText(inputValue.trim());
       setInputValue("");
     }
-    // Bias recognition to the previously detected language (if any). First
-    // turn uses "" so the browser auto-detects.
-    const lang = userLang && userLang !== "en" ? toBcp47(userLang) : "";
+    // Pre-warm the mic by acquiring the audio stream BEFORE starting
+    // SpeechRecognition. Without this warmup, Chrome shows the permission
+    // prompt (or spins up its capture pipeline) *after* recognition.start(),
+    // which drops the first 2-4 seconds of speech. waveform.start() opens
+    // its own getUserMedia stream and doubles as the warmup.
+    try {
+      await waveform.start();
+    } catch {
+      // mic permission denied — recognition.start will surface the error
+    }
+    // Bias recognition to the previously detected language. Default to the
+    // browser locale on the first turn so capture starts instantly (Chrome
+    // delays/drops audio when lang is empty).
+    const lang = userLang && userLang !== "en" ? toBcp47(userLang) : "en-US";
     recognition.start(lang);
-    waveform.start();
   };
 
   const handleMicPause = () => {
