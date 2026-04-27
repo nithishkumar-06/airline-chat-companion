@@ -321,7 +321,7 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
             <p className="text-xs text-primary-foreground/80 truncate">Customer Support</p>
           </div>
 
-          {isAuthenticated && (
+          {VOICE_MODE_ENABLED && isAuthenticated && (
             <div className="flex items-center gap-1">
               <button
                 onClick={toggleVoiceMode}
