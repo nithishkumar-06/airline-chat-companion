@@ -67,7 +67,8 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
   const waveform = useAudioWaveform();
 
   const hasTranscript = !!(recognition.finalText.trim() || recognition.interimText.trim());
-  const showRecordingLayout = voiceMode && (recognition.isRecording || (hasTranscript && !inputValue));
+  const showRecordingLayout =
+    VOICE_MODE_ENABLED && voiceMode && (recognition.isRecording || (hasTranscript && !inputValue));
 
   const getSessionId = () => {
     let sessionId = localStorage.getItem("chat_session_id");
