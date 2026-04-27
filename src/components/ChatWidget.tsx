@@ -477,7 +477,7 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
                 ) : (
                   <>
                     <div className="flex gap-2">
-                      {voiceMode && recognition.isSupported && (
+                      {VOICE_MODE_ENABLED && voiceMode && recognition.isSupported && (
                         <Button
                           onClick={handleMicStart}
                           size="icon"
@@ -493,7 +493,7 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
                         value={inputValue}
                         onChange={(e) => setInputValue(e.target.value)}
                         onKeyDown={handleKeyPress}
-                        placeholder={voiceMode ? "Type or tap mic to speak..." : "Type your message..."}
+                        placeholder={VOICE_MODE_ENABLED && voiceMode ? "Type or tap mic to speak..." : "Type your message..."}
                         className="flex-1 border-muted bg-muted/50 focus-visible:ring-primary"
                         disabled={isLoading}
                       />
@@ -507,7 +507,7 @@ const ChatWidget = ({ onLoginRequest }: { onLoginRequest: () => void }) => {
                       </Button>
                     </div>
                     <p className="mt-2 text-center text-xs text-muted-foreground">
-                      {voiceMode ? "Voice mode on — replies will be spoken" : "Powered by Tata Airways"}
+                      {VOICE_MODE_ENABLED && voiceMode ? "Voice mode on — replies will be spoken" : "Powered by Tata Airways"}
                     </p>
                   </>
                 )}
