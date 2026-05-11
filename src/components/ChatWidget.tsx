@@ -36,7 +36,7 @@ const WEBHOOK_URL = "https://airline-chatbot-v3-615090826594.asia-south1.run.app
 // Feature flag: set to true to re-enable the voice + text hybrid mode (mic
 // button, TTS, language detection, waveform UI). When false, the widget runs
 // in text-only mode and no voice UI is shown.
-const VOICE_MODE_ENABLED = false;
+const VOICE_MODE_ENABLED = true;
 
 const createDefaultMessages = (): Message[] => [
   {
